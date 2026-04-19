@@ -1,0 +1,116 @@
+# @package _global_
+#
+# DISCO Training on Enzyme Data - H100 Single GPU Config
+# Adapted for limited GPU memory (~29GB free on shared H100)
+#
+defaults:
+  - task_manager: default
+  - paths: default
+  - model: default
+  - logger: many_loggers
+  - fabric: default
+  - structure_encoder: default
+  - sequence_sampling_strategy: default
+  - _self_
+
+# --- Checkpoint ---
+load_checkpoint_path: null
+load_strict: false
+deterministic: false
+bb_only: true
+
+# --- Fabric ---
+use_fabric: True
+
+# --- Prot2Text Enzyme Data ---
+prot2text_csv: /home/ubuntu/cqr_files/protein_design/COT_enzyme_design/Prot2Text-Data/enzyme_filter_uniprot/enzyme_gold.csv
+prot2text_pdb_dir: /home/ubuntu/cqr_files/protein_design/COT_enzyme_design/Prot2Text-Data/alphafold_structures/pdb
+train_data_dir: null
+train_metadata_path: null
+
+# Filter settings - use shorter proteins to fit in memory
+min_length: 64
+max_length: 100
+enzyme_only: false
+train_split: null
+
+# Smaller crop size for memory efficiency
+crop_size: 256
+num_workers: 2
+prefetch_factor: 2
+
+# --- Batch sizes ---
+per_gpu_batch_size: 1
+gradient_accumulation_steps: 4
+
+seq_diffusion_batch_size: 8
+struct_diffusion_batch_size: 8
+
+# --- Training ---
+max_steps: 5000
+log_every_n_steps: 10
+save_every_n_steps: 1000
+eval_every_n_steps: 2000
+output_dir: ./train_output_enzyme
+
+# --- Optimizer ---
+optimizer:
+  lr: 0.00018
+  betas: [0.9, 0.95]
+  weight_decay: 1.0e-8
+  eps: 1.0e-8
+
+# --- Scheduler ---
+scheduler:
+  warmup_steps: 200
+  warmup_type: linear
+  decay_factor: 0.95
+  decay_every_n_steps: 2000
+
+# --- Gradient clipping ---
+gradient_clip_norm: 10.0
+
+# --- EMA ---
+ema_decay: 0.999
+
+# --- Loss weights (Eq. S23) ---
+loss_weights:
+  seq: 1.0
+  mse: 4.0
+  smooth_lddt: 4.0
+  distogram: 0.03
+
+# --- Noise ---
+noise:
+  sigma_data: 16.0
+  struct_log_mean: -1.2
+  struct_log_std: 1.5
+  seq_noise_min: 0.0
+  seq_noise_max: 1.0
+
+# --- Augmentation ---
+use_se3_augmentation: false
+occupancy_threshold: 0.9
+
+# --- Mixed precision (bf16 for H100) ---
+dtype: "32-true"
+seed: 42
+
+# --- Paths (required by paths/default.yaml) ---
+dump_dir: ${output_dir}
+
+# --- Model overrides for memory efficiency ---
+# Disable deepspeed evo attention (requires CUTLASS)
+use_deepspeed_evo_attention: false
+use_memory_efficient_kernel: false
+use_lma: false
+
+# Disable activation checkpointing to avoid dimension issues during training
+blocks_per_ckpt: null
+
+# --- Inference settings (needed for model init) ---
+inference_random_transform_ref_pos: true
+inference_random_transform_msk_res: ${task_manager.transform_masked_ref_pos}
+inference_ref_pos_augment: ${task_manager.ref_pos_augment}
+inference_loop_strategy_name: BasicInferenceLoopStrategy
+eval_version: unconditional
